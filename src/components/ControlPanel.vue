@@ -2,9 +2,9 @@
   <aside :class="['control-panel', { 'control-panel--collapsed': collapsed }]">
     <header class="control-panel__header">
       <button
-        class="control-panel__toggle"
-        :aria-label="collapsed ? 'Expand panel' : 'Collapse panel'"
-        @click="collapsed = !collapsed"
+          class="control-panel__toggle"
+          :aria-label="collapsed ? 'Expand panel' : 'Collapse panel'"
+          @click="collapsed = !collapsed"
       >
         {{ collapsed ? '◀' : '▶' }}
       </button>
@@ -17,41 +17,27 @@
           <span class="control-panel__section-icon">◈</span> Noise
         </h3>
 
-        <div class="control-panel__row" v-for="ctrl in noiseControls" :key="ctrl.key">
-          <label class="control-panel__label" :for="`slider-${ctrl.key}`">
+        <div class="control-panel__row" v-for="ctrl in allNoiseControls" :key="ctrl.key">
+          <label class="control-panel__label" :for="`${uid}-${ctrl.key}`">
             {{ ctrl.label }}
           </label>
           <div class="control-panel__slider-wrap">
             <input
-              :id="`slider-${ctrl.key}`"
-              class="control-panel__slider"
-              type="range"
-              :min="ctrl.min"
-              :max="ctrl.max"
-              :step="ctrl.step"
-              :value="noise[ctrl.key]"
-              @input="onNoiseInput(ctrl.key, $event)"
+                :id="`${uid}-${ctrl.key}`"
+                class="control-panel__slider"
+                type="range"
+                :min="ctrl.min"
+                :max="ctrl.max"
+                :step="ctrl.step"
+                :value="noise[ctrl.key]"
+                @input="onNoiseInput(ctrl.key, $event)"
             />
-            <span class="control-panel__value">{{ fmt(noise[ctrl.key], ctrl.decimals) }}</span>
+            <span class="control-panel__value">
+              {{ fmt(noise[ctrl.key], ctrl.decimals) }}
+            </span>
           </div>
         </div>
 
-        <div class="control-panel__row">
-          <label class="control-panel__label">Seed</label>
-          <div class="control-panel__slider-wrap">
-            <input
-              id="slider-seed"
-              class="control-panel__slider"
-              type="range"
-              min="0"
-              max="999"
-              step="1"
-              :value="noise.seed"
-              @input="onNoiseInput('seed', $event)"
-            />
-            <span class="control-panel__value">{{ noise.seed }}</span>
-          </div>
-        </div>
         <button class="control-panel__btn" @click="rollSeed">⟳ Random seed</button>
       </section>
 
@@ -61,17 +47,17 @@
         </h3>
 
         <div class="control-panel__row">
-          <label class="control-panel__label" for="slider-waterLevel">Water level</label>
+          <label class="control-panel__label" :for="`${uid}-waterLevel`">Water level</label>
           <div class="control-panel__slider-wrap">
             <input
-              id="slider-waterLevel"
-              class="control-panel__slider"
-              type="range"
-              min="-0.6"
-              max="0.4"
-              step="0.01"
-              :value="noise.waterLevel"
-              @input="onNoiseInput('waterLevel', $event)"
+                :id="`${uid}-waterLevel`"
+                class="control-panel__slider"
+                type="range"
+                min="-0.6"
+                max="0.4"
+                step="0.01"
+                :value="noise.waterLevel"
+                @input="onNoiseInput('waterLevel', $event)"
             />
             <span class="control-panel__value">{{ fmt(noise.waterLevel, 2) }}</span>
           </div>
@@ -79,17 +65,17 @@
 
         <div class="control-panel__preset-list">
           <button
-            v-for="preset in colorPresets"
-            :key="preset.key"
-            :class="[
+              v-for="preset in colorPresets"
+              :key="preset.key"
+              :class="[
               'control-panel__preset-btn',
               { 'control-panel__preset-btn--active': noise.colorPreset === preset.key }
             ]"
-            @click="onPresetClick(preset.key)"
+              @click="onPresetClick(preset.key)"
           >
             <span
-              class="control-panel__preset-swatch"
-              :style="{ background: preset.gradient }"
+                class="control-panel__preset-swatch"
+                :style="{ background: preset.gradient }"
             />
             {{ preset.label }}
           </button>
@@ -102,50 +88,45 @@
         </h3>
 
         <div class="control-panel__row">
-          <label class="control-panel__label" for="slider-timeOfDay">
-            Time of day
-          </label>
+          <label class="control-panel__label" :for="`${uid}-timeOfDay`">Time of day</label>
           <div class="control-panel__slider-wrap">
             <input
-              id="slider-timeOfDay"
-              class="control-panel__slider"
-              type="range"
-              min="0"
-              max="24"
-              step="0.1"
-              :value="lighting.timeOfDay"
-              @input="onLightingInput('timeOfDay', $event)"
+                :id="`${uid}-timeOfDay`"
+                class="control-panel__slider"
+                type="range"
+                min="0"
+                max="24"
+                step="0.1"
+                :value="lighting.timeOfDay"
+                @input="onLightingInput('timeOfDay', $event)"
             />
             <span class="control-panel__value">{{ formatTime(lighting.timeOfDay) }}</span>
           </div>
         </div>
 
         <div class="control-panel__row">
-          <label class="control-panel__label" for="slider-ambient">
-            Ambient
-          </label>
+          <label class="control-panel__label" :for="`${uid}-ambientIntensity`">Ambient</label>
           <div class="control-panel__slider-wrap">
             <input
-              id="slider-ambient"
-              class="control-panel__slider"
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              :value="lighting.ambientIntensity"
-              @input="onLightingInput('ambientIntensity', $event)"
+                :id="`${uid}-ambientIntensity`"
+                class="control-panel__slider"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                :value="lighting.ambientIntensity"
+                @input="onLightingInput('ambientIntensity', $event)"
             />
             <span class="control-panel__value">{{ fmt(lighting.ambientIntensity, 2) }}</span>
           </div>
         </div>
       </section>
-
     </div>
   </aside>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, useId } from 'vue'
 
 const props = defineProps({
   noise:    { type: Object, required: true },
@@ -155,57 +136,60 @@ const props = defineProps({
 const emit = defineEmits(['update:noise', 'update:lighting'])
 
 const collapsed = ref(false)
+const uid = useId()
 
-const noiseControls = [
+const allNoiseControls = [
   { key: 'scale',       label: 'Scale',       min: 5,   max: 100,  step: 1,    decimals: 0 },
   { key: 'octaves',     label: 'Octaves',     min: 1,   max: 10,   step: 1,    decimals: 0 },
   { key: 'amplitude',   label: 'Amplitude',   min: 2,   max: 40,   step: 0.5,  decimals: 1 },
   { key: 'persistence', label: 'Persistence', min: 0.1, max: 0.9,  step: 0.01, decimals: 2 },
   { key: 'lacunarity',  label: 'Lacunarity',  min: 1.2, max: 4.0,  step: 0.05, decimals: 2 },
+  { key: 'seed',        label: 'Seed',        min: 0,   max: 999,  step: 1,    decimals: 0 },
 ]
 
 const colorPresets = [
-  {
-    key: 'tech',
-    label: 'Tech',
-    gradient: 'linear-gradient(to right, #020a14, #071a38, #0d2f55, #1a3d28, #00e5ff)',
-  },
-  {
-    key: 'natural',
-    label: 'Natural',
-    gradient: 'linear-gradient(to right, #04162e, #2a7dd8, #d4b483, #3a7a2a, #e8e8e8)',
-  },
-  {
-    key: 'desert',
-    label: 'Desert',
-    gradient: 'linear-gradient(to right, #12090a, #c8a870, #b5651d, #8b3a1a, #5c2a0a)',
-  },
-  {
-    key: 'ice',
-    label: 'Ice',
-    gradient: 'linear-gradient(to right, #020d18, #063854, #4a9aba, #c8eaf5, #ffffff)',
-  },
+  { key: 'tech', label: 'Tech', gradient: 'linear-gradient(to right, #020a14, #071a38, #0d2f55, #1a3d28, #00e5ff)' },
+  { key: 'natural', label: 'Natural', gradient: 'linear-gradient(to right, #04162e, #2a7dd8, #d4b483, #3a7a2a, #e8e8e8)' },
+  { key: 'desert', label: 'Desert', gradient: 'linear-gradient(to right, #12090a, #c8a870, #b5651d, #8b3a1a, #5c2a0a)' },
+  { key: 'ice', label: 'Ice', gradient: 'linear-gradient(to right, #020d18, #063854, #4a9aba, #c8eaf5, #ffffff)' },
 ]
+
+let noiseFrameId = null
+function emitNoiseUpdate(updatedFields) {
+  if (noiseFrameId) cancelAnimationFrame(noiseFrameId)
+
+  noiseFrameId = requestAnimationFrame(() => {
+    emit('update:noise', Object.assign({}, props.noise, updatedFields))
+  })
+}
+
+let lightingFrameId = null
+function emitLightingUpdate(updatedFields) {
+  if (lightingFrameId) cancelAnimationFrame(lightingFrameId)
+
+  lightingFrameId = requestAnimationFrame(() => {
+    emit('update:lighting', Object.assign({}, props.lighting, updatedFields))
+  })
+}
 
 function onNoiseInput(key, event) {
   const raw = event.target.value
   const val = ['seed', 'octaves'].includes(key) ? parseInt(raw, 10) : parseFloat(raw)
-  emit('update:noise', { ...props.noise, [key]: val })
+  emitNoiseUpdate({ [key]: val })
 }
 
 function onLightingInput(key, event) {
   const val = parseFloat(event.target.value)
-  emit('update:lighting', { ...props.lighting, [key]: val })
+  emitLightingUpdate({ [key]: val })
 }
 
 function onPresetClick(key) {
-  emit('update:noise', { ...props.noise, colorPreset: key })
+  emit('update:noise', Object.assign({}, props.noise, { colorPreset: key }))
 }
 
 function rollSeed() {
-  emit('update:noise', { ...props.noise, seed: Math.floor(Math.random() * 1000) })
+  emit('update:noise', Object.assign({}, props.noise, { seed: Math.floor(Math.random() * 1000) }))
 }
-
 
 function fmt(val, decimals = 0) {
   return Number(val).toFixed(decimals)
@@ -233,7 +217,7 @@ function formatTime(val) {
   font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
   color: #a0b8c8;
   transition: transform 0.3s ease;
-  overflow-y: auto;
+  overflow: hidden;
   z-index: 10;
 }
 
@@ -432,11 +416,9 @@ function formatTime(val) {
 .control-panel__body::-webkit-scrollbar {
   width: 3px;
 }
-.control-panel::-webkit-scrollbar-track,
 .control-panel__body::-webkit-scrollbar-track {
   background: transparent;
 }
-.control-panel::-webkit-scrollbar-thumb,
 .control-panel__body::-webkit-scrollbar-thumb {
   background: rgba(0, 200, 224, 0.2);
   border-radius: 2px;
