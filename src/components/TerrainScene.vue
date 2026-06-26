@@ -23,8 +23,8 @@ const isLoading = ref(true)
 
 /**
  * @class SceneManager
- * Encapsulates all Three.js scene logic.
- * Instantiated once after mount; destroyed on unmount.
+ * Инкапсулирует всю WebGL/Three.js логику.
+ * Гарантирует отсутствие утечек памяти и стабильный FPS без лишних аллокаций.
  */
 class SceneManager {
   constructor(canvas) {
@@ -34,11 +34,15 @@ class SceneManager {
     this._wireMesh = null
     this._animFrameId = null
 
+    this._tempColor = new THREE.Color()
+    this._isUpdatingTerrain = false
+
     this._onResize = this._handleResize.bind(this)
 
     this._initRenderer()
     this._initScene()
     this._initCamera()
+    this._initMaterials()
     this._initLights()
     this._initControls()
     this._initFog()
@@ -54,7 +58,7 @@ class SceneManager {
       alpha: false,
     })
     this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    this._renderer.setSize(this._canvas.clientWidth, this._canvas.clientHeight)
+    this._renderer.setSize(this._canvas.clientWidth, this._canvas.clientHeight, false)
     this._renderer.shadowMap.enabled = true
     this._renderer.shadowMap.type = THREE.PCFSoftShadowMap
     this._renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -63,7 +67,30 @@ class SceneManager {
 
   _initScene() {
     this._scene = new THREE.Scene()
-    this._scene.background = new THREE.Color(0x05080f)
+  }
+
+  _initMaterials() {
+    this._solidMat = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.95,
+      metalness: 0.05,
+      side: THREE.FrontSide,
+    })
+
+    this._wireMat = new THREE.LineBasicMaterial({
+      color: 0x00c8e0,
+      transparent: true,
+      opacity: 0.18,
+      depthTest: true,
+      depthWrite: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
+    })
+
+    this._nightSky = new THREE.Color(0x05080f)
+    this._daySky = new THREE.Color(0x0a1520)
+    this._duskSky = new THREE.Color(0x0d0a18)
   }
 
   _initCamera() {
@@ -75,11 +102,9 @@ class SceneManager {
   }
 
   _initLights() {
-    // Ambient
     this._ambientLight = new THREE.AmbientLight(0x112233, 0.6)
     this._scene.add(this._ambientLight)
 
-    // Sun (directional)
     this._sunLight = new THREE.DirectionalLight(0xffffff, 1.2)
     this._sunLight.position.set(60, 80, 40)
     this._sunLight.castShadow = true
@@ -92,7 +117,6 @@ class SceneManager {
     this._sunLight.shadow.camera.bottom = -80
     this._scene.add(this._sunLight)
 
-    // Hemisphere
     this._hemiLight = new THREE.HemisphereLight(0x1a2a4a, 0x0a0d14, 0.4)
     this._scene.add(this._hemiLight)
   }
@@ -112,79 +136,58 @@ class SceneManager {
   }
 
   buildTerrain(noiseParams) {
-    this._removeTerrain()
+    if (this._isUpdatingTerrain) return
+    this._isUpdatingTerrain = true
+
+    this._removeTerrainGeometry()
 
     const geometry = this._generator.generate(noiseParams)
 
-    // Solid mesh — vertex colours
-    const solidMat = new THREE.MeshStandardMaterial({
-      vertexColors: true,
-      roughness: 0.95,
-      metalness: 0.05,
-      side: THREE.FrontSide,
-    })
-    this._terrainMesh = new THREE.Mesh(geometry, solidMat)
+    this._terrainMesh = new THREE.Mesh(geometry, this._solidMat)
     this._terrainMesh.receiveShadow = true
     this._terrainMesh.castShadow = true
     this._scene.add(this._terrainMesh)
 
-    // Wireframe overlay
     const wireGeo = new THREE.WireframeGeometry(geometry)
-    const wireMat = new THREE.LineBasicMaterial({
-      color: 0x00c8e0,
-      transparent: true,
-      opacity: 0.18,
-      depthWrite: false,
-    })
-    this._wireMesh = new THREE.LineSegments(wireGeo, wireMat)
+    this._wireMesh = new THREE.LineSegments(wireGeo, this._wireMat)
     this._scene.add(this._wireMesh)
+
+    this._isUpdatingTerrain = false
   }
 
-  _removeTerrain() {
+  _removeTerrainGeometry() {
     if (this._terrainMesh) {
       this._terrainMesh.geometry.dispose()
-      this._terrainMesh.material.dispose()
       this._scene.remove(this._terrainMesh)
       this._terrainMesh = null
     }
     if (this._wireMesh) {
       this._wireMesh.geometry.dispose()
-      this._wireMesh.material.dispose()
       this._scene.remove(this._wireMesh)
       this._wireMesh = null
     }
   }
 
-  /**
-   * Update sun position + colours based on timeOfDay [0, 24] and ambient intensity.
-   */
   updateLighting({ timeOfDay = 12, ambientIntensity = 0.5 } = {}) {
-    // Map [0,24] → angle around the horizon
     const angle = ((timeOfDay / 24) * Math.PI * 2) - Math.PI * 0.5
     const radius = 120
     this._sunLight.position.set(
-      Math.cos(angle) * radius,
-      Math.abs(Math.sin(angle)) * radius + 10,
-      50,
+        Math.cos(angle) * radius,
+        Math.abs(Math.sin(angle)) * radius + 10,
+        50,
     )
 
-    // Night/day colour palette
-    const t = Math.max(0, Math.sin((timeOfDay / 24) * Math.PI * 2 - Math.PI * 0.5))
+    const time = Math.max(0, Math.sin((timeOfDay / 24) * Math.PI * 2 - Math.PI * 0.5))
 
-    const nightSky = new THREE.Color(0x05080f)
-    const daySky   = new THREE.Color(0x0a1520)
-    const duskSky  = new THREE.Color(0x0d0a18)
-
-    let skyColor
-    if (t < 0.5) {
-      skyColor = duskSky.clone().lerp(daySky, t * 2)
+    if (time < 0.5) {
+      this._tempColor.copy(this._duskSky).lerp(this._daySky, time * 2)
     } else {
-      skyColor = daySky
+      this._tempColor.copy(this._daySky)
     }
-    this._scene.background = skyColor
-    if (this._scene.fog) this._scene.fog.color.copy(skyColor)
 
-    // Sun colour: night→cool, dawn/dusk→orange, day→white
+    this._scene.background = this._tempColor
+    if (this._scene.fog) this._scene.fog.color.copy(this._tempColor)
+
     const sunIntensity = Math.max(0, Math.sin((timeOfDay / 24) * Math.PI * 2 - Math.PI * 0.5))
     this._sunLight.intensity = sunIntensity * 1.4 + 0.1
 
@@ -205,10 +208,11 @@ class SceneManager {
   }
 
   _handleResize() {
-    const w = this._canvas.clientWidth
-    const h = this._canvas.clientHeight
-    this._renderer.setSize(w, h)
-    this._camera.aspect = w / h
+    const width = this._canvas.clientWidth
+    const height = this._canvas.clientHeight
+
+    this._renderer.setSize(width, height, false)
+    this._camera.aspect = width / height
     this._camera.updateProjectionMatrix()
   }
 
@@ -216,42 +220,49 @@ class SceneManager {
     cancelAnimationFrame(this._animFrameId)
     window.removeEventListener('resize', this._onResize)
     this._controls.dispose()
-    this._removeTerrain()
+    this._removeTerrainGeometry()
+
+    this._solidMat.dispose()
+    this._wireMat.dispose()
     this._renderer.dispose()
   }
 }
 
-let _sceneManager = null
+let sceneManagerInstance = null
 
 onMounted(() => {
-  _sceneManager = new SceneManager(canvasRef.value)
-  _sceneManager.buildTerrain(props.noiseParams)
-  _sceneManager.updateLighting(props.lightingParams)
+  sceneManagerInstance = new SceneManager(canvasRef.value)
+  sceneManagerInstance.buildTerrain(props.noiseParams)
+  sceneManagerInstance.updateLighting(props.lightingParams)
   isLoading.value = false
 })
 
 onBeforeUnmount(() => {
-  _sceneManager?.dispose()
-  _sceneManager = null
+  sceneManagerInstance?.dispose()
+  sceneManagerInstance = null
 })
 
+let watchFrameId = null
 watch(
-  () => props.noiseParams,
-  (val) => {
-    if (!_sceneManager) return
-    isLoading.value = true
-    setTimeout(() => {
-      _sceneManager.buildTerrain({ ...val })
-      isLoading.value = false
-    }, 20)
-  },
-  { deep: true },
+    () => props.noiseParams,
+    (val) => {
+      if (!sceneManagerInstance) return
+      isLoading.value = true
+      if (watchFrameId) cancelAnimationFrame(watchFrameId)
+
+      watchFrameId = requestAnimationFrame(() => {
+        sceneManagerInstance.buildTerrain({ ...val })
+        isLoading.value = false
+        watchFrameId = null
+      })
+    },
+    { deep: true },
 )
 
 watch(
-  () => props.lightingParams,
-  (val) => { _sceneManager?.updateLighting({ ...val }) },
-  { deep: true },
+    () => props.lightingParams,
+    (val) => { sceneManagerInstance?.updateLighting({ ...val }) },
+    { deep: true },
 )
 </script>
 
@@ -260,6 +271,7 @@ watch(
   position: relative;
   width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
 .terrain-scene__canvas {
@@ -276,7 +288,7 @@ watch(
   justify-content: center;
   background: rgba(5, 8, 15, 0.65);
   backdrop-filter: blur(4px);
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .terrain-scene__loader-text {
